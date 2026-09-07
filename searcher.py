@@ -90,6 +90,10 @@ def search_spankbang(query, limit=10):
 def download_video(url, site):
     """Download video using yt-dlp with proper settings"""
     try:
+        # Ensure site-specific directory exists
+        site_dir = os.path.join(DOWNLOAD_DIR, site)
+        os.makedirs(site_dir, exist_ok=True)
+        
         output_template = f"{DOWNLOAD_DIR}/{site}/%(title)s [%(id)s].%(ext)s"
         
         cmd = [
