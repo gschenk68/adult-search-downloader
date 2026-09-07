@@ -1,0 +1,28 @@
+services:
+  adult-search-downloader:
+    container_name: adult-search-downloader
+    build:
+      context: ${DOCKERDIR}/compose/schenkserver4/build-contexts/adult-search-downloader
+      dockerfile: Dockerfile
+    image: adult-search-downloader:latest
+    restart: unless-stopped
+    environment:
+      - TZ=$TZ
+      - PUID=$PUID
+      - PGID=$PGID
+      - DOWNLOAD_DIR=/downloads
+      - DB_PATH=/config/searches.db
+      - GALLERY_DL_ARCHIVE=/config/archive.sqlite3
+    volumes:
+      - ${DOCKERDIR}/appdata/adult-search-downloader:/config
+      - ${MEDIADIR3}/gallery-dl:/downloads
+    ports:
+      - "${ADULT_SEARCH_PORT:-5555}:5000"
+    networks:
+      - docker_network
+    profiles:
+      - media
+      - adult
+      - all
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
