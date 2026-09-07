@@ -1,44 +1,71 @@
 #!/bin/bash
-# Quick deployment script for adult-search-downloader fix
-# Run this on ss4 to pull the latest fix and rebuild the container
+# Deployment script for adult-search-downloader
 
 set -e
 
-echo "=== Adult Search Downloader - Deploy Fix ==="
+echo "🚀 Deploying Adult Search Downloader v2.0"
+echo "=========================================="
+
+# Configuration
+REMOTE_HOST="gschenk68@192.168.10.162"
+REMOTE_DIR="/home/gschenk68/docker"
+APP_NAME="adult-search-downloader"
+
+# Check if we're deploying standalone or VPN mode
+MODE="${1:-standalone}"
+
+echo ""
+echo "📋 Deployment Mode: $MODE"
 echo ""
 
-# Navigate to build context
-cd ~/docker/compose/schenkserver4/build-contexts/adult-search-downloader/
+# Build Docker image locally first (optional - can build on server)
+echo "🔨 Building Docker image..."
+docker build -t $APP_NAME:latest . || echo "Local build skipped (will build on server)"
 
-echo "📥 Pulling latest changes from GitHub..."
-git pull origin master
-echo ""
+# Deploy files to server
+echo "📦 Copying files to ss4..."
+ssh $REMOTE_HOST "mkdir -p $REMOTE_DIR/$APP_NAME"
 
-# Navigate to docker directory
-cd ~/docker
+scp searcher.py Dockerfile $REMOTE_HOST:$REMOTE_DIR/$APP_NAME/
 
-echo "🔨 Rebuilding container..."
-sudo docker compose -f docker-compose-schenkserver4.yml up adult-search-downloader --build -d
-echo ""
+if [ "$MODE" = "vpn" ]; then
+    echo "🔒 Using VPN mode (qbt-vpn network)"
+    scp docker-compose.yml $REMOTE_HOST:$REMOTE_DIR/$APP_NAME/
+else
+    echo "🌐 Using standalone mode (direct internet)"
+    scp docker-compose-standalone.yml $REMOTE_HOST:$REMOTE_DIR/$APP_NAME/docker-compose.yml
+fi
 
-echo "⏳ Waiting for container to start..."
+# Deploy to server
+echo "🚢 Deploying on ss4..."
+ssh $REMOTE_HOST "cd $REMOTE_DIR/$APP_NAME && docker compose down 2>/dev/null || true"
+ssh $REMOTE_HOST "cd $REMOTE_DIR/$APP_NAME && docker compose build"
+ssh $REMOTE_HOST "cd $REMOTE_DIR/$APP_NAME && docker compose up -d"
+
+# Wait for startup
+echo "⏳ Waiting for service to start..."
 sleep 5
+
+# Check status
+echo "✅ Checking status..."
+ssh $REMOTE_HOST "docker ps | grep $APP_NAME"
+
+echo ""
+echo "=========================================="
+echo "✨ Deployment Complete!"
 echo ""
 
-echo "✅ Deployment complete!"
-echo ""
-echo "📋 Container status:"
-sudo docker ps | grep adult-search
-echo ""
+if [ "$MODE" = "vpn" ]; then
+    echo "🔗 Access via qbt-vpn network at port 5000"
+    echo "   (Internal access through VPN container)"
+else
+    echo "🔗 Access at: http://192.168.10.162:5556"
+fi
 
-echo "📊 Recent logs:"
-sudo docker logs adult-search-downloader --tail 10
 echo ""
-
-echo "🌐 Service available at: https://adult-search.gjsandstar.com"
+echo "📊 View logs:"
+echo "   ssh $REMOTE_HOST 'docker logs -f $APP_NAME'"
 echo ""
-echo "🧪 Test the fix:"
-echo "   1. Open https://adult-search.gjsandstar.com"
-echo "   2. Search for any term"
-echo "   3. Click Download on a result"
-echo "   4. Should complete without directory errors"
+echo "🛑 Stop service:"
+echo "   ssh $REMOTE_HOST 'cd $REMOTE_DIR/$APP_NAME && docker compose down'"
+echo ""

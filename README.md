@@ -1,159 +1,181 @@
-# Adult Search Downloader
+# Adult Site Search & Downloader
 
-Web-based search and download service for adult sites with gallery-dl/yt-dlp integration.
+Multi-site adult video search and download tool with real-time progress tracking.
 
-## Features
+## 🚀 Features
 
-- 🔍 **Keyword Search**: Search adult sites (SpankBang, etc.) by description/keywords
-- 📥 **Automated Downloads**: One-click or bulk download of search results
-- 📊 **Search History**: Track all searches and download status
-- 🗄️ **Deduplication**: Shared archive database prevents re-downloading
-- 🎯 **Stash Integration**: Downloads go directly to media directory visible to Stash
+- **Multi-Site Search**: Search across 6+ adult sites simultaneously
+- **Real-Time Progress**: Live download progress with percentage and speed
+- **VPN Ready**: Designed to run through Tailscale/Mullvad VPN
+- **Smart Deduplication**: Archive tracking to avoid re-downloads
+- **Modern UI**: Dark-themed responsive web interface
+- **Download Queue**: Track multiple downloads with status monitoring
 
-## Supported Sites
+## 🌐 Supported Sites
 
-- ✅ **SpankBang** - Full search and download support
-- ❌ **PornHub, XVideos, XHamster** - Blocked by Florida age verification laws from ss4 IP
+✅ **Currently Enabled** (6 sites):
+- SpankBang
+- XNXX
+- EPorner
+- TXXX
+- HClips
+- Upornia
 
-## Installation
+❌ **Geo-Blocked** (Florida/Aylo sites):
+- PornHub
+- XVideos
+- XHamster
+- Brazzers
+- Reality Kings
 
-### Deployrr-Compatible Deployment
+## 📦 Quick Start
 
-1. Copy service compose file:
+### Option 1: Standalone (No VPN)
+
 ```bash
-cp docker-compose.yml ~/docker/compose/schenkserver4/adult-search-downloader.yml
+cd adult-search-downloader
+docker compose -f docker-compose-standalone.yml up -d
 ```
 
-2. Add to master compose includes (before SERVICE-PLACEHOLDER):
+Access at: http://localhost:5556
+
+### Option 2: Through VPN (Recommended)
+
+**Requirements:**
+- qBittorrent VPN container running (qbt-vpn)
+- Tailscale → Mullvad setup
+
 ```bash
-cd ~/docker
-# Edit docker-compose-schenkserver4.yml and add to includes:
-#   - compose/schenkserver4/adult-search-downloader.yml
+# Deploy to ss4 with VPN routing
+cd adult-search-downloader
+./deploy.sh
 ```
 
-3. Add port to .env:
+Access at: http://172.17.0.1:5556 (or through qbt-vpn's network)
+
+### Option 3: Traefik + Authelia
+
+1. Copy Traefik route:
 ```bash
-echo "ADULT_SEARCH_PORT=5555" >> .env
+scp app-adult-search.yml gschenk68@192.168.10.162:~/docker/appdata/traefik3/rules/schenkserver4/
 ```
 
-4. Build and deploy:
-```bash
-docker compose -f docker-compose-schenkserver4.yml build adult-search-downloader
-docker compose -f docker-compose-schenkserver4.yml --profile adult up -d
-```
+2. Update the route to match your qbt-vpn setup
 
-5. Create Traefik rule:
+3. Access at: https://adult-search.gjsandstar.com
+
+## 🎯 Usage
+
+1. **Search**: Enter keywords, select site (or "All Sites"), set result limit
+2. **Download**: Click "Download" on any video - progress shows in real-time
+3. **Monitor**: Active Downloads section shows all in-progress downloads
+4. **History**: Recent searches tracked with success rates
+
+## 📊 Progress Tracking
+
+The UI now shows:
+- **Real-time percentage** (0-100%)
+- **Download speed** and ETA
+- **Visual progress bars** for each download
+- **Active downloads panel** with all concurrent downloads
+- **Auto-refresh** every 5 seconds
+
+No more "click and wonder" - you'll see exactly what's happening!
+
+## 🔧 Configuration
+
+### Environment Variables
+
+- `DOWNLOAD_DIR`: Where videos are saved (default: `/downloads`)
+- `DB_PATH`: SQLite database location (default: `/config/searches.db`)
+- `GALLERY_DL_ARCHIVE`: Deduplication archive (default: `/config/archive.sqlite3`)
+
+### Volume Mounts
+
+- `/config`: Database and settings
+- `/downloads`: Video downloads organized by site
+
+### Network Modes
+
+**VPN Mode** (recommended for privacy):
 ```yaml
-# ~/docker/appdata/traefik3/rules/schenkserver4/app-adult-search.yml
-http:
-  routers:
-    adult-search-rtr:
-      entryPoints:
-        - websecure-external
-        - websecure-internal
-      rule: "Host(`adult-search.gjsandstar.com`)"
-      service: adult-search-svc
-      middlewares:
-        - chain-authelia
-      tls:
-        certResolver: dns-cloudflare
-        
-  services:
-    adult-search-svc:
-      loadBalancer:
-        servers:
-          - url: "http://172.17.0.1:5555"
+network_mode: "container:qbt-vpn"
 ```
 
-6. Access at: https://adult-search.gjsandstar.com
+**Bridge Mode** (direct internet):
+```yaml
+ports:
+  - "5556:5000"
+```
 
-## Usage
+## 🏗️ Architecture
 
-### Web UI
-1. Open the web interface
-2. Enter search keywords (e.g., "outdoor amateur", "college party")
-3. Select site (SpankBang recommended)
-4. Click "Search"
-5. Review results and click "Download" on individual videos or "Download All"
+```
+User → Traefik → adult-search-downloader → Tailscale → Mullvad VPN → Adult Sites
+                        ↓
+                   qbt-vpn netns
+```
 
-### API Endpoints
+- **Flask** web server with SSE for progress
+- **yt-dlp** for downloads with `--impersonate chrome`
+- **curl-cffi** for CF-protected sites
+- **SQLite** for search/download history
+- **Threading** for background downloads
 
-**Search:**
+## 📝 API Endpoints
+
+- `POST /api/search` - Search sites
+- `POST /api/download` - Start download
+- `GET /api/progress/<id>` - Get download progress
+- `GET /api/active-downloads` - List active downloads
+- `GET /api/history` - Search history
+
+## 🔒 Security Notes
+
+- Use Authelia for authentication
+- Run through VPN for privacy
+- Geo-blocking bypass via VPN
+- No logs of search queries (local only)
+
+## 🐛 Troubleshooting
+
+### Downloads stuck at 0%
+- Check VPN connection: `docker logs qbt-vpn`
+- Test site access: `curl --impersonate chrome https://spankbang.com`
+
+### "Container not found" error
+- Ensure qbt-vpn is running: `docker ps | grep qbt-vpn`
+- Use standalone mode if VPN not available
+
+### Site search returns empty
+- Some sites may change their HTML structure
+- Check logs: `docker logs adult-search-downloader`
+- Site may be temporarily down
+
+## 📜 License
+
+MIT License - See LICENSE file
+
+## 🤝 Contributing
+
+Pull requests welcome! Please test with:
 ```bash
-curl -X POST http://localhost:5555/api/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "keyword here", "site": "spankbang", "limit": 10}'
+# Build and test locally
+docker build -t adult-search-test .
+docker run -p 5556:5000 adult-search-test
 ```
 
-**Download Single:**
-```bash
-curl -X POST http://localhost:5555/api/download \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://spankbang.com/xxxxx/video/title", "site": "spankbang"}'
-```
+## 🎉 Recent Updates
 
-**Download All from Search:**
-```bash
-curl -X POST http://localhost:5555/api/download-all/1
-```
+**v2.0** - Real-Time Progress Tracking
+- ✨ Live download progress with percentages
+- ✨ Active downloads monitoring panel
+- ✨ Multi-site "All Sites" search option
+- ✨ 5 new adult sites added
+- ✨ Better error handling and status updates
+- ✨ VPN network mode support
 
-**View History:**
-```bash
-curl http://localhost:5555/api/history
-```
-
-## Configuration
-
-Environment variables:
-- `DOWNLOAD_DIR`: Download destination (default: `/downloads`, maps to `MEDIADIR3/gallery-dl`)
-- `DB_PATH`: SQLite database for search history (default: `/config/searches.db`)
-- `GALLERY_DL_ARCHIVE`: Shared archive for deduplication (default: `/config/archive.sqlite3`)
-
-## Integration with Stash
-
-Downloads go to `${MEDIADIR3}/gallery-dl/<site>/` which is visible to Stash at `/data/gallery-dl/`.
-
-Trigger Stash scan after downloads:
-```bash
-# Get API key from Stash container
-APIKEY=$(docker exec stash grep -m1 "^api_key" /root/.stash/config.yml | cut -d" " -f2)
-
-# Trigger scan
-curl -s http://localhost:9999/graphql \
-  -H "ApiKey: $APIKEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"mutation { metadataScan(input: { paths: [\"/data/gallery-dl\"] }) }"}'
-```
-
-## Limitations
-
-- **Florida IP Block**: ss4's Florida IP (47.195.x.x) is blocked by Aylo sites (PornHub, XVideos, XHamster) due to age verification laws
-- **SpankBang Only**: Currently only SpankBang search is fully implemented
-- **No Background Queue**: Downloads run synchronously (future: add Celery/RQ)
-
-## Architecture
-
-```
-User → Web UI (Flask) → Search Site (curl-cffi) → Parse Results
-                      ↓
-                Download (yt-dlp + impersonate) → MEDIADIR3/gallery-dl/
-                      ↓
-                Track in SQLite → History/Status
-```
-
-## Troubleshooting
-
-**Exit code 32**: NoExtractorError - URL is an aggregator/search page, not a direct video URL
-
-**403 Forbidden**: Site requires browser impersonation - curl-cffi with `impersonate="chrome"` is enabled
-
-**Empty results**: Try different keywords or check if site is accessible from ss4 IP
-
-## Future Enhancements
-
-- [ ] Add more sites (when accessible)
-- [ ] Background task queue (Celery/Redis)
-- [ ] Scheduled searches (cron-like)
-- [ ] Stash API integration (auto-tag downloaded scenes)
-- [ ] Quality/format preferences
-- [ ] Batch import from text file
+**v1.0** - Initial Release
+- Basic search and download
+- SpankBang support only
+- Simple progress tracking

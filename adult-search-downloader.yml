@@ -19,7 +19,7 @@ services:
     ports:
       - "${ADULT_SEARCH_PORT:-5555}:5000"
     networks:
-      - docker_network
+      - docker_default
     profiles:
       - media
       - adult

@@ -5,6 +5,7 @@ services:
     build: .
     container_name: adult-search-downloader
     restart: unless-stopped
+    network_mode: "container:qbt-vpn"  # Use qbt-vpn's network (Tailscale → Mullvad)
     environment:
       - TZ=${TZ}
       - PUID=${PUID}
@@ -15,18 +16,12 @@ services:
     volumes:
       - ${DOCKERDIR}/appdata/adult-search-downloader:/config
       - ${MEDIADIR3}/gallery-dl:/downloads
-    ports:
-      - "${ADULT_SEARCH_PORT:-5555}:5000"
-    networks:
-      - default
+    # No ports section - using qbt-vpn's network, access via its IP
     profiles:
       - media
       - adult
       - all
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-
-networks:
-  default:
-    name: docker_network
-    external: true
+    depends_on:
+      - qbt-vpn

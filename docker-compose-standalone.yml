@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  adult-search-downloader:
+    build: .
+    container_name: adult-search-downloader
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - DOWNLOAD_DIR=/downloads
+      - DB_PATH=/config/searches.db
+      - GALLERY_DL_ARCHIVE=/config/archive.sqlite3
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+    ports:
+      - "5556:5000"  # Changed from 5555 to avoid conflicts
+    networks:
+      - default
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  default:
+    name: docker_network
+    external: true

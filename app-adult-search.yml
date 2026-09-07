@@ -1,0 +1,22 @@
+---
+# Traefik route for adult-search-downloader
+# Path: ~/docker/appdata/traefik3/rules/schenkserver4/app-adult-search.yml
+
+http:
+  routers:
+    adult-search:
+      entryPoints:
+        - https
+      rule: "Host(`adult-search.gjsandstar.com`)"
+      middlewares:
+        - authelia@file
+        - chain-no-auth@file
+      service: adult-search
+      tls:
+        certResolver: dns-cloudflare
+
+  services:
+    adult-search:
+      loadBalancer:
+        servers:
+          - url: "http://172.17.0.1:8093"  # qbt-vpn container IP with port 5000 mapped to 8093
